@@ -1,15 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import StatusBadge from "./StatusBadge";
 import type { Agent } from "@/lib/api";
 
 interface AgentCardProps {
     agent: Agent;
     isAdmin: boolean;
-    onStart: (id: string) => void;
-    onStop: (id: string) => void;
-    onReset: (id: string) => void;
-    onDelete: (id: string) => void;
+    onStart: (id: string) => Promise<void> | void;
+    onStop: (id: string) => Promise<void> | void;
+    onReset: (id: string) => Promise<void> | void;
+    onDelete: (id: string) => Promise<void> | void;
     highlight?: boolean;
 }
 
@@ -22,6 +23,21 @@ export default function AgentCard({
     onDelete,
     highlight,
 }: AgentCardProps) {
+    const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+    const handleAction = async (
+        action: string,
+        handler: (id: string) => Promise<void> | void
+    ) => {
+        if (loadingAction) return;
+        setLoadingAction(action);
+        try {
+            await handler(agent.id);
+        } finally {
+            setLoadingAction(null);
+        }
+    };
+
     return (
         <div className={`agent-card ${highlight ? "agent-card-highlight" : ""}`}>
             <div className="agent-card-header">
@@ -58,32 +74,40 @@ export default function AgentCard({
                     {(agent.status === "idle" || agent.status === "unknown") && (
                         <button
                             className="btn btn-success btn-sm"
-                            onClick={() => onStart(agent.id)}
+                            onClick={() => handleAction("start", onStart)}
+                            disabled={loadingAction !== null}
+                            aria-label={`Start agent ${agent.name}`}
                         >
-                            ▶ Start
+                            {loadingAction === "start" ? "Starting..." : "▶ Start"}
                         </button>
                     )}
                     {agent.status === "running" && (
                         <button
                             className="btn btn-warning btn-sm"
-                            onClick={() => onStop(agent.id)}
+                            onClick={() => handleAction("stop", onStop)}
+                            disabled={loadingAction !== null}
+                            aria-label={`Stop agent ${agent.name}`}
                         >
-                            ⏹ Stop
+                            {loadingAction === "stop" ? "Stopping..." : "⏹ Stop"}
                         </button>
                     )}
                     {(agent.status === "crashed" || agent.status === "unreachable") && (
                         <button
                             className="btn btn-info btn-sm"
-                            onClick={() => onReset(agent.id)}
+                            onClick={() => handleAction("reset", onReset)}
+                            disabled={loadingAction !== null}
+                            aria-label={`Reset agent ${agent.name}`}
                         >
-                            ↻ Reset
+                            {loadingAction === "reset" ? "Resetting..." : "↻ Reset"}
                         </button>
                     )}
                     <button
                         className="btn btn-danger btn-sm"
-                        onClick={() => onDelete(agent.id)}
+                        onClick={() => handleAction("delete", onDelete)}
+                        disabled={loadingAction !== null}
+                        aria-label={`Remove agent ${agent.name}`}
                     >
-                        ✕ Remove
+                        {loadingAction === "delete" ? "Removing..." : "✕ Remove"}
                     </button>
                 </div>
             )}
