@@ -105,41 +105,41 @@ export default function Dashboard() {
     }, [token, fetchAgents, addEvent]);
 
     // Agent actions
-    const handleStart = async (id: string) => {
+    const handleStart = useCallback(async (id: string) => {
         if (!token) return;
         try {
             await startAgent(token, id);
         } catch (err: any) {
             addEvent("error", `Failed to start: ${err.message}`);
         }
-    };
+    }, [token, addEvent]);
 
-    const handleStop = async (id: string) => {
+    const handleStop = useCallback(async (id: string) => {
         if (!token) return;
         try {
             await stopAgent(token, id);
         } catch (err: any) {
             addEvent("error", `Failed to stop: ${err.message}`);
         }
-    };
+    }, [token, addEvent]);
 
-    const handleReset = async (id: string) => {
+    const handleReset = useCallback(async (id: string) => {
         if (!token) return;
         try {
             await resetAgent(token, id);
         } catch (err: any) {
             addEvent("error", `Failed to reset: ${err.message}`);
         }
-    };
+    }, [token, addEvent]);
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = useCallback(async (id: string) => {
         if (!token) return;
         try {
             await deleteAgent(token, id);
         } catch (err: any) {
             addEvent("error", `Failed to delete: ${err.message}`);
         }
-    };
+    }, [token, addEvent]);
 
     if (status === "loading") {
         return (
