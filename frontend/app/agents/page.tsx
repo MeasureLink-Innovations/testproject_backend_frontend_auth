@@ -22,8 +22,8 @@ export default function AgentsPage() {
     const [registering, setRegistering] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const token = (session as any)?.accessToken as string | undefined;
-    const roles = (session as any)?.roles as string[] | undefined;
+    const token = (session as unknown as { accessToken: string })?.accessToken as string | undefined;
+    const roles = (session as unknown as { roles: string[] })?.roles as string[] | undefined;
     const isAdmin = roles?.includes("admin") ?? false;
 
     const fetchAgents = useCallback(async () => {
@@ -56,8 +56,9 @@ export default function AgentsPage() {
             setName("");
             setBaseUrl("");
             await fetchAgents();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setError(message);
         } finally {
             setRegistering(false);
         }
@@ -68,8 +69,9 @@ export default function AgentsPage() {
         try {
             await action(token, id);
             await fetchAgents();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setError(message);
         }
     }, [token, fetchAgents]);
 

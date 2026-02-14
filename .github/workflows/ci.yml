@@ -15,7 +15,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 9.0.x
+        dotnet-version: 10.0.x
 
     - name: Restore dependencies
       run: dotnet restore backend/Backend.sln
@@ -74,7 +74,9 @@ jobs:
         pip install pytest
 
     - name: Test
-      run: pytest
+      run: |
+        export PYTHONPATH=$PYTHONPATH:.
+        pytest
 
   build-images:
     needs: [backend-ci, frontend-ci, measurement-agent-ci]

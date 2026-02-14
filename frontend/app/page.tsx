@@ -22,8 +22,8 @@ export default function Dashboard() {
     const [highlightedAgent, setHighlightedAgent] = useState<string | null>(null);
     const eventSourceRef = useRef<EventSource | null>(null);
 
-    const token = (session as any)?.accessToken as string | undefined;
-    const roles = (session as any)?.roles as string[] | undefined;
+    const token = (session as unknown as { accessToken: string })?.accessToken as string | undefined;
+    const roles = (session as unknown as { roles: string[] })?.roles as string[] | undefined;
     const isAdmin = roles?.includes("admin") ?? false;
 
     const addEvent = useCallback(
@@ -109,8 +109,9 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await startAgent(token, id);
-        } catch (err: any) {
-            addEvent("error", `Failed to start: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            addEvent("error", `Failed to start: ${message}`);
         }
     }, [token, addEvent]);
 
@@ -118,8 +119,9 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await stopAgent(token, id);
-        } catch (err: any) {
-            addEvent("error", `Failed to stop: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            addEvent("error", `Failed to stop: ${message}`);
         }
     }, [token, addEvent]);
 
@@ -127,8 +129,9 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await resetAgent(token, id);
-        } catch (err: any) {
-            addEvent("error", `Failed to reset: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            addEvent("error", `Failed to reset: ${message}`);
         }
     }, [token, addEvent]);
 
@@ -136,8 +139,9 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await deleteAgent(token, id);
-        } catch (err: any) {
-            addEvent("error", `Failed to delete: ${err.message}`);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            addEvent("error", `Failed to delete: ${message}`);
         }
     }, [token, addEvent]);
 
