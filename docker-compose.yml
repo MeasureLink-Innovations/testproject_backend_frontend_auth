@@ -1,0 +1,143 @@
+services:
+  # ---------- Databases ----------
+  keycloak-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U keycloak" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: measurement_system
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - app-db-data:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---------- Keycloak ----------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - backend-net
+      - frontend-net
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+
+  # ---------- Flask Measurement Agents ----------
+  measurement-agent-1:
+    build: ./measurement-agent
+    environment:
+      PORT: "5100"
+      MEASUREMENT_INTERVAL: "1.0"
+      CRASH_PROBABILITY: "0.005"
+    ports:
+      - "5100:5100"
+    networks:
+      - backend-net
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5100/health')\"" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  measurement-agent-2:
+    build: ./measurement-agent
+    environment:
+      PORT: "5100"
+      MEASUREMENT_INTERVAL: "2.0"
+      CRASH_PROBABILITY: "0.01"
+    ports:
+      - "5101:5100"
+    networks:
+      - backend-net
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5100/health')\"" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ---------- C# Backend API ----------
+  backend-api:
+    build: ./backend
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__AppDb: "Host=app-db;Port=5432;Database=measurement_system;Username=postgres;Password=postgres"
+      Keycloak__Authority: "http://keycloak:8080/realms/measurement-system"
+      Keycloak__ExternalAuthority: "http://localhost:8080/realms/measurement-system"
+      Keycloak__Audience: "backend-api"
+      Cors__Origins__0: "http://localhost:3000"
+    ports:
+      - "5000:5000"
+    networks:
+      - backend-net
+      - frontend-net
+    depends_on:
+      app-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  # ---------- Next.js Frontend ----------
+  frontend:
+    build: ./frontend
+    environment:
+      KEYCLOAK_CLIENT_ID: frontend-app
+      KEYCLOAK_CLIENT_SECRET: ""
+      KEYCLOAK_ISSUER: "http://localhost:8080/realms/measurement-system"
+      KEYCLOAK_ISSUER_INTERNAL: "http://keycloak:8080/realms/measurement-system"
+      AUTH_URL: "http://localhost:3000"
+      AUTH_SECRET: "dev-secret-change-in-production"
+      NEXT_PUBLIC_API_URL: "http://localhost:5000"
+      AUTH_TRUST_HOST: "true"
+    ports:
+      - "3000:3000"
+    networks:
+      - frontend-net
+    depends_on:
+      - backend-api
+
+volumes:
+  keycloak-db-data:
+  app-db-data:
+
+
+networks:
+  backend-net:
+    driver: bridge
+  frontend-net:
+    driver: bridge
