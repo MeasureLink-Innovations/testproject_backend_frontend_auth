@@ -1,5 +1,6 @@
 using Backend.Api.Data;
 using Backend.Api.Services;
+using Backend.Api.Services.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -75,6 +76,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // ---------- Services ----------
+builder.Services.AddSingleton<AgentUrlValidator>();
 builder.Services.AddSingleton<SseBroadcaster>();
 builder.Services.AddSingleton<MeasurementProxyService>(sp =>
     new MeasurementProxyService(
