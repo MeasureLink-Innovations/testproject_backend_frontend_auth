@@ -63,7 +63,7 @@ export default function AgentsPage() {
         }
     };
 
-    const handleAction = async (action: (t: string, id: string) => Promise<void>, id: string) => {
+    const handleAction = useCallback(async (action: (t: string, id: string) => Promise<void>, id: string) => {
         if (!token) return;
         try {
             await action(token, id);
@@ -71,7 +71,12 @@ export default function AgentsPage() {
         } catch (err: any) {
             setError(err.message);
         }
-    };
+    }, [token, fetchAgents]);
+
+    const onStart = useCallback((id: string) => handleAction(startAgent, id), [handleAction]);
+    const onStop = useCallback((id: string) => handleAction(stopAgent, id), [handleAction]);
+    const onReset = useCallback((id: string) => handleAction(resetAgent, id), [handleAction]);
+    const onDelete = useCallback((id: string) => handleAction(deleteAgent, id), [handleAction]);
 
     if (!session) {
         return (
@@ -140,10 +145,10 @@ export default function AgentsPage() {
                                 key={agent.id}
                                 agent={agent}
                                 isAdmin={isAdmin}
-                                onStart={(id) => handleAction(startAgent, id)}
-                                onStop={(id) => handleAction(stopAgent, id)}
-                                onReset={(id) => handleAction(resetAgent, id)}
-                                onDelete={(id) => handleAction(deleteAgent, id)}
+                                onStart={onStart}
+                                onStop={onStop}
+                                onReset={onReset}
+                                onDelete={onDelete}
                             />
                         ))}
                     </div>

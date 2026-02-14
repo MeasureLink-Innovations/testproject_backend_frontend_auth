@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import StatusBadge from "./StatusBadge";
 import type { Agent } from "@/lib/api";
 
@@ -14,7 +14,7 @@ interface AgentCardProps {
     highlight?: boolean;
 }
 
-export default function AgentCard({
+function AgentCard({
     agent,
     isAdmin,
     onStart,
@@ -114,3 +114,36 @@ export default function AgentCard({
         </div>
     );
 }
+
+function arePropsEqual(prev: AgentCardProps, next: AgentCardProps) {
+    if (
+        prev.isAdmin !== next.isAdmin ||
+        prev.highlight !== next.highlight ||
+        prev.onStart !== next.onStart ||
+        prev.onStop !== next.onStop ||
+        prev.onReset !== next.onReset ||
+        prev.onDelete !== next.onDelete
+    ) {
+        return false;
+    }
+
+    const prevAgent = prev.agent as unknown as Record<string, unknown>;
+    const nextAgent = next.agent as unknown as Record<string, unknown>;
+
+    const prevKeys = Object.keys(prevAgent);
+    const nextKeys = Object.keys(nextAgent);
+
+    if (prevKeys.length !== nextKeys.length) {
+        return false;
+    }
+
+    for (const key of prevKeys) {
+        if (prevAgent[key] !== nextAgent[key]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+export default memo(AgentCard, arePropsEqual);
