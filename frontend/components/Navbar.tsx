@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession, signIn, signOut } from "next-auth/react";
+import Link from "next/link";
 
 export default function Navbar() {
     const { data: session } = useSession();
@@ -14,8 +15,12 @@ export default function Navbar() {
                 <span className="navbar-title">Measurement System</span>
             </div>
             <div className="navbar-links">
-                <a href="/" className="navbar-link">Dashboard</a>
-                <a href="/agents" className="navbar-link">Agents</a>
+                <Link href="/" className="navbar-link">
+                    Dashboard
+                </Link>
+                <Link href="/agents" className="navbar-link">
+                    Agents
+                </Link>
             </div>
             <div className="navbar-user">
                 {session ? (
@@ -29,7 +34,10 @@ export default function Navbar() {
                         </button>
                     </>
                 ) : (
-                    <button onClick={() => signIn("keycloak")} className="btn btn-primary btn-sm">
+                    <button
+                        onClick={() => signIn("keycloak")}
+                        className="btn btn-primary btn-sm"
+                    >
                         Sign In
                     </button>
                 )}
