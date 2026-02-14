@@ -144,11 +144,8 @@ All components have been verified with clean builds:
 
 The following screenshots demonstrate the functional system after login, agent registration, and a simulated crash event.
 
-````carousel
 ![Agent Management: Lab Sensor 1 Running](docs/screenshots/agent_management.png)
-<!-- slide -->
 ![Dashboard: Real-time Crash Detection](docs/screenshots/dashboard.png)
-````
 
 ## License
 
