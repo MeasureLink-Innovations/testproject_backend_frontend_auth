@@ -11,10 +11,12 @@
   },
   "dependencies": {
     "@types/jest": "^29.5.14",
+    "framer-motion": "^12.34.0",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-hot-toast": "^2.6.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
