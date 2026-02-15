@@ -26,33 +26,6 @@ jobs:
     - name: Test
       run: dotnet test --no-build --verbosity normal backend/Backend.Tests/Backend.Tests.csproj
 
-  frontend-ci:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-
-    - name: Install dependencies
-      run: npm ci
-
-    - name: Lint
-      run: npm run lint
-
-    - name: Test
-      run: npm test
-
-    - name: Build
-      run: npm run build
-
   measurement-agent-ci:
     runs-on: ubuntu-latest
     defaults:
@@ -78,8 +51,35 @@ jobs:
         export PYTHONPATH=$PYTHONPATH:.
         pytest
 
+  e2e-test:
+    needs: [backend-ci, measurement-agent-ci]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build Frontend Image
+      run: docker build -t frontend ./frontend
+
+    - name: Run Frontend Container
+      run: docker run -d -p 3000:3000 frontend
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Install Playwright
+      working-directory: ./e2e
+      run: |
+        npm ci
+        npx playwright install --with-deps
+
+    - name: Run Playwright Tests
+      working-directory: ./e2e
+      run: npx playwright test
+
   build-images:
-    needs: [backend-ci, frontend-ci, measurement-agent-ci]
+    needs: [backend-ci, measurement-agent-ci, e2e-test]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
