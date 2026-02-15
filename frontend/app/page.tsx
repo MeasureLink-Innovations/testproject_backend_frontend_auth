@@ -2,6 +2,8 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 import AgentCard from "@/components/AgentCard";
 import EventLog, { EventLogEntry } from "@/components/EventLog";
 import {
@@ -22,8 +24,8 @@ export default function Dashboard() {
     const [highlightedAgent, setHighlightedAgent] = useState<string | null>(null);
     const eventSourceRef = useRef<EventSource | null>(null);
 
-    const token = (session as any)?.accessToken as string | undefined;
-    const roles = (session as any)?.roles as string[] | undefined;
+    const token = (session as unknown as { accessToken?: string })?.accessToken;
+    const roles = (session as unknown as { roles?: string[] })?.roles;
     const isAdmin = roles?.includes("admin") ?? false;
 
     const addEvent = useCallback(
@@ -45,7 +47,7 @@ export default function Dashboard() {
         try {
             const data = await getAgents(token);
             setAgents(data);
-        } catch (err) {
+        } catch (err: unknown) {
             console.error("Failed to fetch agents:", err);
         } finally {
             setLoading(false);
@@ -61,7 +63,8 @@ export default function Dashboard() {
         const es = new EventSource(createSseUrl(token));
         eventSourceRef.current = es;
 
-        es.addEventListener("agent_status_changed", (e) => {
+        es.addEventListener("agent_status_changed", (event: Event) => {
+            const e = event as MessageEvent;
             const data = JSON.parse(e.data);
             addEvent(
                 data.newStatus === "crashed" ? "error" : "status",
@@ -72,19 +75,22 @@ export default function Dashboard() {
             fetchAgents();
         });
 
-        es.addEventListener("agent_registered", (e) => {
+        es.addEventListener("agent_registered", (event: Event) => {
+            const e = event as MessageEvent;
             const data = JSON.parse(e.data);
             addEvent("info", `New agent registered: ${data.name}`);
             fetchAgents();
         });
 
-        es.addEventListener("agent_removed", (e) => {
+        es.addEventListener("agent_removed", (event: Event) => {
+            const e = event as MessageEvent;
             const data = JSON.parse(e.data);
             addEvent("info", `Agent removed: ${data.name}`);
             fetchAgents();
         });
 
-        es.addEventListener("measurement_data", (e) => {
+        es.addEventListener("measurement_data", (event: Event) => {
+            const e = event as MessageEvent;
             const data = JSON.parse(e.data);
             const latest = data.readings?.[data.readings.length - 1];
             if (latest) {
@@ -109,8 +115,12 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await startAgent(token, id);
-        } catch (err: any) {
-            addEvent("error", `Failed to start: ${err.message}`);
+            toast.success("Agent started successfully");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            const msg = `Failed to start: ${message}`;
+            addEvent("error", msg);
+            toast.error(msg);
         }
     }, [token, addEvent]);
 
@@ -118,8 +128,12 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await stopAgent(token, id);
-        } catch (err: any) {
-            addEvent("error", `Failed to stop: ${err.message}`);
+            toast.success("Agent stopped successfully");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            const msg = `Failed to stop: ${message}`;
+            addEvent("error", msg);
+            toast.error(msg);
         }
     }, [token, addEvent]);
 
@@ -127,8 +141,12 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await resetAgent(token, id);
-        } catch (err: any) {
-            addEvent("error", `Failed to reset: ${err.message}`);
+            toast.success("Agent reset command sent");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            const msg = `Failed to reset: ${message}`;
+            addEvent("error", msg);
+            toast.error(msg);
         }
     }, [token, addEvent]);
 
@@ -136,8 +154,12 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await deleteAgent(token, id);
-        } catch (err: any) {
-            addEvent("error", `Failed to delete: ${err.message}`);
+            toast.success("Agent deleted successfully");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            const msg = `Failed to delete: ${message}`;
+            addEvent("error", msg);
+            toast.error(msg);
         }
     }, [token, addEvent]);
 
@@ -163,26 +185,46 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="dashboard">
+        <motion.div
+            className="dashboard"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+        >
             <div className="dashboard-header">
                 <h1>Dashboard</h1>
                 <div className="dashboard-stats">
-                    <div className="stat-card">
+                    <motion.div
+                        className="stat-card"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                    >
                         <span className="stat-value">{agents.length}</span>
                         <span className="stat-label">Agents</span>
-                    </div>
-                    <div className="stat-card stat-running">
+                    </motion.div>
+                    <motion.div
+                        className="stat-card stat-running"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                    >
                         <span className="stat-value">
                             {agents.filter((a) => a.status === "running").length}
                         </span>
                         <span className="stat-label">Running</span>
-                    </div>
-                    <div className="stat-card stat-error">
+                    </motion.div>
+                    <motion.div
+                        className="stat-card stat-error"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                    >
                         <span className="stat-value">
                             {agents.filter((a) => a.status === "crashed" || a.status === "unreachable").length}
                         </span>
                         <span className="stat-label">Issues</span>
-                    </div>
+                    </motion.div>
                 </div>
             </div>
 
@@ -200,18 +242,28 @@ export default function Dashboard() {
                         </div>
                     ) : (
                         <div className="agents-grid">
-                            {agents.map((agent) => (
-                                <AgentCard
-                                    key={agent.id}
-                                    agent={agent}
-                                    isAdmin={isAdmin}
-                                    onStart={handleStart}
-                                    onStop={handleStop}
-                                    onReset={handleReset}
-                                    onDelete={handleDelete}
-                                    highlight={highlightedAgent === agent.id}
-                                />
-                            ))}
+                            <AnimatePresence>
+                                {agents.map((agent) => (
+                                    <motion.div
+                                        key={agent.id}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <AgentCard
+                                            agent={agent}
+                                            isAdmin={isAdmin}
+                                            onStart={handleStart}
+                                            onStop={handleStop}
+                                            onReset={handleReset}
+                                            onDelete={handleDelete}
+                                            highlight={highlightedAgent === agent.id}
+                                        />
+                                    </motion.div>
+                                ))}
+                            </AnimatePresence>
                         </div>
                     )}
                 </section>
@@ -221,6 +273,6 @@ export default function Dashboard() {
                     <EventLog events={events} />
                 </section>
             </div>
-        </div>
+        </motion.div>
     );
 }
