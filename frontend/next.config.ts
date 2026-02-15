@@ -16,16 +16,18 @@ const nextConfig: NextConfig = {
     // Turbopack doesn’t automatically honor tsconfig paths, so we
     // define the same alias here to match `tsconfig.json`.
     webpack(config) {
-    config.resolve.fallback = {
+        if (!config.resolve) config.resolve = {} as any;
+        if (!config.resolve.alias) config.resolve.alias = {} as any;
+        config.resolve.alias['@'] = __dirname;
 
-      // if you miss it, all the other options in fallback, specified
-      // by next.js will be dropped.
-      ...config.resolve.fallback,
+        config.resolve.fallback = {
+            // if you miss it, all the other options in fallback, specified
+            // by next.js will be dropped.
+            ...config.resolve.fallback,
+            fs: false, // the solution
+        };
 
-      fs: false, // the solution
-    };
-
-    return config;
+        return config;
     },
 };
 
