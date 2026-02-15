@@ -15,13 +15,16 @@ const nextConfig: NextConfig = {
     // Webpack alias needed for path mappings (@/...)
     // Turbopack doesn’t automatically honor tsconfig paths, so we
     // define the same alias here to match `tsconfig.json`.
-    webpack: (config, { isServer }) => {
-    // Fixes npm packages that depend on `fs` module
-    if (!isServer) {
-      config.node = {
-        fs: 'empty'
-      }
-    }
+    webpack(config) {
+    config.resolve.fallback = {
+
+      // if you miss it, all the other options in fallback, specified
+      // by next.js will be dropped.
+      ...config.resolve.fallback,
+
+      fs: false, // the solution
+    };
+
     return config;
     },
 };
