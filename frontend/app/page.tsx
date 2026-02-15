@@ -70,6 +70,16 @@ export default function Dashboard() {
                 data.newStatus === "crashed" ? "error" : "status",
                 `${data.name}: ${data.previousStatus} → ${data.newStatus}${data.error ? ` (${data.error})` : ""}`
             );
+
+            if (data.newStatus === "crashed") {
+                toast.error(`Agent ${data.name} has crashed!`, {
+                    style: {
+                        border: "1px solid var(--accent-red)",
+                        color: "var(--accent-red)",
+                    },
+                });
+            }
+
             setHighlightedAgent(data.agentId);
             setTimeout(() => setHighlightedAgent(null), 2000);
             fetchAgents();
@@ -115,7 +125,13 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await startAgent(token, id);
-            toast.success("Agent started successfully");
+            toast.success("Agent started successfully", {
+                icon: "▶",
+                style: {
+                    border: "1px solid var(--accent-blue)",
+                    color: "var(--accent-blue)",
+                },
+            });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             const msg = `Failed to start: ${message}`;
@@ -128,7 +144,13 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await stopAgent(token, id);
-            toast.success("Agent stopped successfully");
+            toast.success("Agent stopped successfully", {
+                icon: "⏹",
+                style: {
+                    border: "1px solid var(--accent-amber)",
+                    color: "var(--accent-amber)",
+                },
+            });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             const msg = `Failed to stop: ${message}`;
@@ -141,7 +163,13 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await resetAgent(token, id);
-            toast.success("Agent reset command sent");
+            toast.success("Agent reset command sent", {
+                icon: "↻",
+                style: {
+                    border: "1px solid var(--accent-cyan)",
+                    color: "var(--accent-cyan)",
+                },
+            });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             const msg = `Failed to reset: ${message}`;
@@ -154,7 +182,13 @@ export default function Dashboard() {
         if (!token) return;
         try {
             await deleteAgent(token, id);
-            toast.success("Agent deleted successfully");
+            toast.success("Agent deleted successfully", {
+                icon: "✕",
+                style: {
+                    border: "1px solid var(--accent-red)",
+                    color: "var(--accent-red)",
+                },
+            });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             const msg = `Failed to delete: ${message}`;
