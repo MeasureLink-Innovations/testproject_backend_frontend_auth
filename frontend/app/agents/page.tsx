@@ -2,7 +2,6 @@
 
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useCallback } from "react";
-import toast from "react-hot-toast";
 import AgentCard from "@/components/AgentCard";
 import {
     Agent,
@@ -23,8 +22,8 @@ export default function AgentsPage() {
     const [registering, setRegistering] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const token = (session as unknown as { accessToken?: string })?.accessToken;
-    const roles = (session as unknown as { roles?: string[] })?.roles;
+    const token = (session as unknown as { accessToken: string })?.accessToken as string | undefined;
+    const roles = (session as unknown as { roles: string[] })?.roles as string[] | undefined;
     const isAdmin = roles?.includes("admin") ?? false;
 
     const fetchAgents = useCallback(async () => {
@@ -57,91 +56,29 @@ export default function AgentsPage() {
             setName("");
             setBaseUrl("");
             await fetchAgents();
-            toast.success("Agent registered successfully");
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             setError(message);
-            toast.error(message);
         } finally {
             setRegistering(false);
         }
     };
 
-    const onStart = useCallback(async (id: string) => {
+    const handleAction = useCallback(async (action: (t: string, id: string) => Promise<void>, id: string) => {
         if (!token) return;
         try {
-            await startAgent(token, id);
+            await action(token, id);
             await fetchAgents();
-            toast.success("Agent started successfully", {
-                icon: "▶",
-                style: {
-                    border: "1px solid var(--accent-blue)",
-                    color: "var(--accent-blue)",
-                },
-            });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             setError(message);
-            toast.error(message);
         }
     }, [token, fetchAgents]);
 
-    const onStop = useCallback(async (id: string) => {
-        if (!token) return;
-        try {
-            await stopAgent(token, id);
-            await fetchAgents();
-            toast.success("Agent stopped successfully", {
-                icon: "⏹",
-                style: {
-                    border: "1px solid var(--accent-amber)",
-                    color: "var(--accent-amber)",
-                },
-            });
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err);
-            setError(message);
-            toast.error(message);
-        }
-    }, [token, fetchAgents]);
-
-    const onReset = useCallback(async (id: string) => {
-        if (!token) return;
-        try {
-            await resetAgent(token, id);
-            await fetchAgents();
-            toast.success("Agent reset command sent", {
-                icon: "↻",
-                style: {
-                    border: "1px solid var(--accent-cyan)",
-                    color: "var(--accent-cyan)",
-                },
-            });
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err);
-            setError(message);
-            toast.error(message);
-        }
-    }, [token, fetchAgents]);
-
-    const onDelete = useCallback(async (id: string) => {
-        if (!token) return;
-        try {
-            await deleteAgent(token, id);
-            await fetchAgents();
-            toast.success("Agent deleted successfully", {
-                icon: "✕",
-                style: {
-                    border: "1px solid var(--accent-red)",
-                    color: "var(--accent-red)",
-                },
-            });
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err);
-            setError(message);
-            toast.error(message);
-        }
-    }, [token, fetchAgents]);
+    const onStart = useCallback((id: string) => handleAction(startAgent, id), [handleAction]);
+    const onStop = useCallback((id: string) => handleAction(stopAgent, id), [handleAction]);
+    const onReset = useCallback((id: string) => handleAction(resetAgent, id), [handleAction]);
+    const onDelete = useCallback((id: string) => handleAction(deleteAgent, id), [handleAction]);
 
     if (!session) {
         return (
