@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore backend/Backend.sln
+
+    - name: Build
+      run: dotnet build --no-restore backend/Backend.sln
+
+    - name: Test
+      run: dotnet test --no-build --verbosity normal backend/Backend.Tests/Backend.Tests.csproj
+
+  measurement-agent-ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./measurement-agent
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+
+    - name: Test
+      run: |
+        export PYTHONPATH=$PYTHONPATH:.
+        pytest
+
+  e2e-test:
+    needs: [backend-ci, measurement-agent-ci]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build Frontend Image
+      run: docker build -t frontend ./frontend
+
+    - name: Run Frontend Container
+      run: docker run -d -p 3000:3000 frontend
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Install Playwright
+      working-directory: ./e2e
+      run: |
+        npm ci
+        npx playwright install --with-deps
+
+    - name: Run Playwright Tests
+      working-directory: ./e2e
+      run: npx playwright test
+
+  build-images:
+    needs: [backend-ci, measurement-agent-ci, e2e-test]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build Backend Image
+      run: docker build -t backend-api ./backend
+
+    - name: Build Frontend Image
+      run: docker build -t frontend ./frontend
+
+    - name: Build Measurement Agent Image
+      run: docker build -t measurement-agent ./measurement-agent
