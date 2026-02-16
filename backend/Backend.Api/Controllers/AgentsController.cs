@@ -1,6 +1,7 @@
 using Backend.Api.Data;
 using Backend.Api.Models;
 using Backend.Api.Services;
+using Backend.Api.Services.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,12 +16,18 @@ public class AgentsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly MeasurementProxyService _proxy;
     private readonly SseBroadcaster _sse;
+    private readonly AgentUrlValidator _urlValidator;
 
-    public AgentsController(AppDbContext db, MeasurementProxyService proxy, SseBroadcaster sse)
+    public AgentsController(
+        AppDbContext db,
+        MeasurementProxyService proxy,
+        SseBroadcaster sse,
+        AgentUrlValidator urlValidator)
     {
         _db = db;
         _proxy = proxy;
         _sse = sse;
+        _urlValidator = urlValidator;
     }
 
     /// <summary>List all registered agents.</summary>
@@ -54,10 +61,17 @@ public class AgentsController : ControllerBase
     [Authorize(Roles = "admin")]
     public async Task<ActionResult<AgentDto>> Register([FromBody] RegisterAgentRequest req)
     {
+        var cleanUrl = req.BaseUrl.TrimEnd('/');
+
+        if (!_urlValidator.IsSafeUrl(cleanUrl))
+        {
+            return BadRequest(new { message = "Invalid or unsafe agent URL" });
+        }
+
         var agent = new Agent
         {
             Name = req.Name,
-            BaseUrl = req.BaseUrl.TrimEnd('/')
+            BaseUrl = cleanUrl
         };
 
         _db.Agents.Add(agent);
