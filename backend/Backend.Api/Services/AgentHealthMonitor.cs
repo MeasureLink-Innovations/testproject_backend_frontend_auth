@@ -14,6 +14,7 @@ public class AgentHealthMonitor : BackgroundService
     private readonly MeasurementProxyService _proxy;
     private readonly SseBroadcaster _sse;
     private readonly ILogger<AgentHealthMonitor> _logger;
+    private readonly SemaphoreSlim _semaphore = new(20);
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
@@ -29,6 +30,12 @@ public class AgentHealthMonitor : BackgroundService
         _logger = logger;
     }
 
+    public override void Dispose()
+    {
+        _semaphore.Dispose();
+        base.Dispose();
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("AgentHealthMonitor started");
@@ -37,7 +44,7 @@ public class AgentHealthMonitor : BackgroundService
         {
             try
             {
-                await PollAllAgentsAsync();
+                await PollAllAgentsAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -48,39 +55,48 @@ public class AgentHealthMonitor : BackgroundService
         }
     }
 
-    private async Task PollAllAgentsAsync()
+    private async Task PollAllAgentsAsync(CancellationToken stoppingToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var agents = await db.Agents.ToListAsync();
+        var agents = await db.Agents.ToListAsync(stoppingToken);
 
-        // 1. Parallelize network calls to all agents
+        // 1. Parallelize network calls to all agents (with concurrency limit)
         var tasks = agents.Select(async agent =>
         {
-            var status = await _proxy.GetStatusAsync(agent.BaseUrl);
-            List<MeasurementDataPoint> data = [];
-
-            string newStatus;
-            string? lastError;
-
-            if (status == null)
+            await _semaphore.WaitAsync(stoppingToken);
+            try
             {
-                newStatus = "unreachable";
-                lastError = "Agent did not respond to health check";
-            }
-            else
-            {
-                newStatus = status.State;
-                lastError = status.Error;
-            }
+                var status = await _proxy.GetStatusAsync(agent.BaseUrl);
+                List<MeasurementDataPoint> data = [];
 
-            if (newStatus == "running")
-            {
-                data = await _proxy.GetDataAsync(agent.BaseUrl, 5);
-            }
+                string newStatus;
+                string? lastError;
 
-            return new { Agent = agent, NewStatus = newStatus, LastError = lastError, Data = data };
+                if (status == null)
+                {
+                    newStatus = "unreachable";
+                    lastError = "Agent did not respond to health check";
+                }
+                else
+                {
+                    newStatus = status.State;
+                    lastError = status.Error;
+                }
+
+                if (newStatus == "running")
+                {
+                    // Fetch only 1 data point (latest) to reduce payload size
+                    data = await _proxy.GetDataAsync(agent.BaseUrl, 1);
+                }
+
+                return new { Agent = agent, NewStatus = newStatus, LastError = lastError, Data = data };
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
         });
 
         var results = await Task.WhenAll(tasks);
