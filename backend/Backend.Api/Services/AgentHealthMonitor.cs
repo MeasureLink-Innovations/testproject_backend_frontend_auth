@@ -15,6 +15,7 @@ public class AgentHealthMonitor : BackgroundService
     private readonly MeasurementProxyService _proxy;
     private readonly SseBroadcaster _sse;
     private readonly ILogger<AgentHealthMonitor> _logger;
+    private readonly SemaphoreSlim _semaphore = new(20);
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
     // Limit concurrent requests to prevent socket exhaustion
@@ -32,6 +33,12 @@ public class AgentHealthMonitor : BackgroundService
         _logger = logger;
     }
 
+    public override void Dispose()
+    {
+        _semaphore.Dispose();
+        base.Dispose();
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("AgentHealthMonitor started");
@@ -40,7 +47,7 @@ public class AgentHealthMonitor : BackgroundService
         {
             try
             {
-                await PollAllAgentsAsync();
+                await PollAllAgentsAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -51,14 +58,14 @@ public class AgentHealthMonitor : BackgroundService
         }
     }
 
-    private async Task PollAllAgentsAsync()
+    private async Task PollAllAgentsAsync(CancellationToken stoppingToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var agents = await db.Agents.ToListAsync();
+        var agents = await db.Agents.ToListAsync(stoppingToken);
 
-        // 1. Parallelize network calls to all agents
+        // 1. Parallelize network calls to all agents (with concurrency limit)
         var tasks = agents.Select(async agent =>
         {
             await _semaphore.WaitAsync();
