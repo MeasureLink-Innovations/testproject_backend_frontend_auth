@@ -1,3 +1,4 @@
+using System.Threading;
 using Backend.Api.Data;
 using Backend.Api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,8 @@ public class AgentHealthMonitor : BackgroundService
     private readonly ILogger<AgentHealthMonitor> _logger;
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+    // Limit concurrent requests to prevent socket exhaustion
+    private readonly SemaphoreSlim _semaphore = new(20);
 
     public AgentHealthMonitor(
         IServiceScopeFactory scopeFactory,
@@ -58,29 +61,37 @@ public class AgentHealthMonitor : BackgroundService
         // 1. Parallelize network calls to all agents
         var tasks = agents.Select(async agent =>
         {
-            var status = await _proxy.GetStatusAsync(agent.BaseUrl);
-            List<MeasurementDataPoint> data = [];
-
-            string newStatus;
-            string? lastError;
-
-            if (status == null)
+            await _semaphore.WaitAsync();
+            try
             {
-                newStatus = "unreachable";
-                lastError = "Agent did not respond to health check";
-            }
-            else
-            {
-                newStatus = status.State;
-                lastError = status.Error;
-            }
+                var status = await _proxy.GetStatusAsync(agent.BaseUrl);
+                List<MeasurementDataPoint> data = [];
 
-            if (newStatus == "running")
-            {
-                data = await _proxy.GetDataAsync(agent.BaseUrl, 5);
-            }
+                string newStatus;
+                string? lastError;
 
-            return new { Agent = agent, NewStatus = newStatus, LastError = lastError, Data = data };
+                if (status == null)
+                {
+                    newStatus = "unreachable";
+                    lastError = "Agent did not respond to health check";
+                }
+                else
+                {
+                    newStatus = status.State;
+                    lastError = status.Error;
+                }
+
+                if (newStatus == "running")
+                {
+                    data = await _proxy.GetDataAsync(agent.BaseUrl, 5);
+                }
+
+                return new { Agent = agent, NewStatus = newStatus, LastError = lastError, Data = data };
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
         });
 
         var results = await Task.WhenAll(tasks);
