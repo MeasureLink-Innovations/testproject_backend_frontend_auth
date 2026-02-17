@@ -1,3 +1,4 @@
+using System.Threading;
 using Backend.Api.Data;
 using Backend.Api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,8 @@ public class AgentHealthMonitor : BackgroundService
     private readonly SemaphoreSlim _semaphore = new(20);
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+    // Limit concurrent requests to prevent socket exhaustion
+    private readonly SemaphoreSlim _semaphore = new(20);
 
     public AgentHealthMonitor(
         IServiceScopeFactory scopeFactory,
@@ -65,7 +68,7 @@ public class AgentHealthMonitor : BackgroundService
         // 1. Parallelize network calls to all agents (with concurrency limit)
         var tasks = agents.Select(async agent =>
         {
-            await _semaphore.WaitAsync(stoppingToken);
+            await _semaphore.WaitAsync();
             try
             {
                 var status = await _proxy.GetStatusAsync(agent.BaseUrl);
@@ -87,8 +90,7 @@ public class AgentHealthMonitor : BackgroundService
 
                 if (newStatus == "running")
                 {
-                    // Fetch only 1 data point (latest) to reduce payload size
-                    data = await _proxy.GetDataAsync(agent.BaseUrl, 1);
+                    data = await _proxy.GetDataAsync(agent.BaseUrl, 5);
                 }
 
                 return new { Agent = agent, NewStatus = newStatus, LastError = lastError, Data = data };
