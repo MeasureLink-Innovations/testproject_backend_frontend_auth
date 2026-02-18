@@ -82,7 +82,34 @@ export default function Dashboard() {
 
             setHighlightedAgent(data.agentId);
             setTimeout(() => setHighlightedAgent(null), 2000);
-            fetchAgents();
+
+            // Optimization: Update state locally instead of fetching all agents
+            setAgents((prev) =>
+                prev.map((agent) => {
+                    if (agent.id === data.agentId) {
+                        let newError = agent.lastError;
+                        // Use provided error if present
+                        if (data.error !== undefined) {
+                            newError = data.error;
+                        }
+                        // Handle manual reset case (crashed -> idle) where error might not be in payload but should be cleared
+                        else if (
+                            data.previousStatus === "crashed" &&
+                            data.newStatus === "idle"
+                        ) {
+                            newError = null;
+                        }
+
+                        return {
+                            ...agent,
+                            status: data.newStatus,
+                            lastCheckedAt: data.timestamp || new Date().toISOString(),
+                            lastError: newError,
+                        };
+                    }
+                    return agent;
+                })
+            );
         });
 
         es.addEventListener("agent_registered", (event: Event) => {
@@ -96,7 +123,9 @@ export default function Dashboard() {
             const e = event as MessageEvent;
             const data = JSON.parse(e.data);
             addEvent("info", `Agent removed: ${data.name}`);
-            fetchAgents();
+
+            // Optimization: Update state locally
+            setAgents((prev) => prev.filter((a) => a.id !== data.agentId));
         });
 
         es.addEventListener("measurement_data", (event: Event) => {
