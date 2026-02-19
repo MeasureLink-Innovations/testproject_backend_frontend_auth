@@ -82,7 +82,25 @@ export default function Dashboard() {
 
             setHighlightedAgent(data.agentId);
             setTimeout(() => setHighlightedAgent(null), 2000);
-            fetchAgents();
+
+            // Optimization: Update local state instead of refetching
+            setAgents((prev) =>
+                prev.map((agent) => {
+                    if (agent.id !== data.agentId) return agent;
+                    return {
+                        ...agent,
+                        status: data.newStatus,
+                        lastCheckedAt: data.timestamp || new Date().toISOString(),
+                        lastError:
+                            data.error !== undefined
+                                ? data.error
+                                : data.newStatus === "idle" &&
+                                  data.previousStatus === "crashed"
+                                ? undefined
+                                : agent.lastError,
+                    };
+                })
+            );
         });
 
         es.addEventListener("agent_registered", (event: Event) => {
@@ -96,7 +114,9 @@ export default function Dashboard() {
             const e = event as MessageEvent;
             const data = JSON.parse(e.data);
             addEvent("info", `Agent removed: ${data.name}`);
-            fetchAgents();
+
+            // Optimization: Update local state instead of refetching
+            setAgents((prev) => prev.filter((a) => a.id !== data.agentId));
         });
 
         es.addEventListener("measurement_data", (event: Event) => {
