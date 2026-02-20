@@ -82,7 +82,20 @@ export default function Dashboard() {
 
             setHighlightedAgent(data.agentId);
             setTimeout(() => setHighlightedAgent(null), 2000);
-            fetchAgents();
+
+            // Event-driven update: modify local state instead of re-fetching all agents
+            setAgents((prev) =>
+                prev.map((agent) =>
+                    agent.id === data.agentId
+                        ? {
+                              ...agent,
+                              status: data.newStatus,
+                              lastError: data.error || undefined,
+                              lastCheckedAt: data.timestamp,
+                          }
+                        : agent
+                )
+            );
         });
 
         es.addEventListener("agent_registered", (event: Event) => {
@@ -96,7 +109,7 @@ export default function Dashboard() {
             const e = event as MessageEvent;
             const data = JSON.parse(e.data);
             addEvent("info", `Agent removed: ${data.name}`);
-            fetchAgents();
+            setAgents((prev) => prev.filter((a) => a.id !== data.agentId));
         });
 
         es.addEventListener("measurement_data", (event: Event) => {
