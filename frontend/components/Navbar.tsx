@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function Navbar() {
     const { data: session } = useSession();
-    const roles = (session as any)?.roles as string[] | undefined;
+    const roles = (session as unknown as { roles: string[] })?.roles as string[] | undefined;
     const isAdmin = roles?.includes("admin");
 
     return (

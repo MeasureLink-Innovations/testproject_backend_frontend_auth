@@ -5,7 +5,6 @@ This guide provides a technical walkthrough of the authentication and dynamic fr
 ## Architecture Overview
 
 The system uses a modern distributed architecture:
-
 - **Frontend**: Next.js (App Router) with NextAuth (Auth.js) for session management.
 - **Backend**: ASP.NET Core Web API with JWT Bearer authentication.
 - **Identity Provider**: Keycloak for OAuth2/OpenID Connect.
@@ -20,10 +19,9 @@ The system uses a modern distributed architecture:
 The frontend manages authentication using `next-auth`. The core configuration is in [`frontend/lib/auth.ts`](frontend/lib/auth.ts).
 
 **Key Features:**
-
-1. **Dual Issuer Handling**: Differentiates between `KEYCLOAK_ISSUER` (client-facing) and `KEYCLOAK_ISSUER_INTERNAL` (server-to-server) to support Docker networking.
-2. **Token Refresh Flow**: Implements a `jwt` callback that automatically refreshes the access token using the refresh token when it near expiration.
-3. **Role Extraction**: Extracts realm roles from the JWT payload and adds them to the session for Role-Based Access Control (RBAC) in the UI.
+1.  **Dual Issuer Handling**: Differentiates between `KEYCLOAK_ISSUER` (client-facing) and `KEYCLOAK_ISSUER_INTERNAL` (server-to-server) to support Docker networking.
+2.  **Token Refresh Flow**: Implements a `jwt` callback that automatically refreshes the access token using the refresh token when it near expiration.
+3.  **Role Extraction**: Extracts realm roles from the JWT payload and adds them to the session for Role-Based Access Control (RBAC) in the UI.
 
 ```typescript
 // Example Role Extraction (frontend/lib/auth.ts)
@@ -38,10 +36,9 @@ function extractRoles(accessToken: string): string[] {
 The backend validates tokens issued by Keycloak. Configuration is in [`backend/Backend.Api/Program.cs`](backend/Backend.Api/Program.cs).
 
 **Key Features:**
-
-1. **Multiple Issuers**: Configured to accept tokens from both internal and external Keycloak URLs.
-2. **SSE Token Support**: A custom `OnMessageReceived` event handler extracts the access token from the query string (required for `EventSource` which doesn't support custom headers).
-3. **Role Mapping**: On token validation, the `realm_access.roles` from the raw JWT are mapped to `ClaimTypes.Role` so they can be used with `[Authorize(Roles = "admin")]`.
+1.  **Multiple Issuers**: Configured to accept tokens from both internal and external Keycloak URLs.
+2.  **SSE Token Support**: A custom `OnMessageReceived` event handler extracts the access token from the query string (required for `EventSource` which doesn't support custom headers).
+3.  **Role Mapping**: On token validation, the `realm_access.roles` from the raw JWT are mapped to `ClaimTypes.Role` so they can be used with `[Authorize(Roles = "admin")]`.
 
 ```csharp
 // SSE Token Extraction (backend/Backend.Api/Program.cs)
@@ -65,13 +62,11 @@ options.Events = new JwtBearerEvents {
 The dashboard provides real-time updates without polling.
 
 **Frontend Implementation ([`frontend/app/page.tsx`](frontend/app/page.tsx)):**
-
 - Uses the standard `EventSource` API.
 - Passes the auth token via query parameter: `new EventSource(createSseUrl(token))`.
 - Detailed listeners for `agent_status_changed`, `agent_registered`, and `measurement_data`.
 
 **Backend Implementation ([`backend/Backend.Api/Controllers/EventsController.cs`](backend/Backend.Api/Controllers/EventsController.cs)):**
-
 - Streams data with `text/event-stream` Content-Type.
 - Uses a `SseBroadcaster` service to push events to all connected clients.
 
@@ -89,20 +84,16 @@ The UI dynamically adjusts based on the user's roles extracted during login.
 The system automatically detects and propagates issues with the measurement agents to the frontend.
 
 ### 🩺 Health Monitoring (Backend)
-
 The [`AgentHealthMonitor`](backend/Backend.Api/Services/AgentHealthMonitor.cs) is a background service that:
-
 - Polls every registered agent's `/status` endpoint every 5 seconds.
 - Detects if an agent is `unreachable` or has `crashed`.
 - Updates the database and broadcasts an `agent_status_changed` event via SSE if the state changes.
 
 ### ❗ Frontend Reaction
-
 In [`app/page.tsx`](frontend/app/page.tsx), the `EventSource` listener for `agent_status_changed` handles the update:
-
-1. **Event Log**: Adds a new entry (marked as "error" if the new status is `crashed`).
-2. **Visual Feedback**: Sets a `highlightedAgent` ID, which causes the specific `AgentCard` to pulse or flash.
-3. **State Refresh**: Calls `fetchAgents()` to ensure the dashboard reflects the latest status and error messages from the database.
+1.  **Event Log**: Adds a new entry (marked as "error" if the new status is `crashed`).
+2.  **Visual Feedback**: Sets a `highlightedAgent` ID, which causes the specific `AgentCard` to pulse or flash.
+3.  **State Refresh**: Calls `fetchAgents()` to ensure the dashboard reflects the latest status and error messages from the database.
 
 ---
 
@@ -118,6 +109,6 @@ The system relies on a specific network topology defined in [`docker-compose.yml
 
 ## 🚀 How to use as a Reference
 
-1. **Auth Setup**: Copy `frontend/lib/auth.ts` and the `Authentication` section of `Program.cs`.
-2. **SSE Pattern**: Refer to `EventsController.cs` and the `useEffect` hook in `page.tsx` for a clean streaming implementation.
-3. **Internal/External URLs**: Use the pattern of passing both internal and external authorities to the backend to avoid "Issuer Mismatch" errors in Docker environments.
+1.  **Auth Setup**: Copy `frontend/lib/auth.ts` and the `Authentication` section of `Program.cs`.
+2.  **SSE Pattern**: Refer to `EventsController.cs` and the `useEffect` hook in `page.tsx` for a clean streaming implementation.
+3.  **Internal/External URLs**: Use the pattern of passing both internal and external authorities to the backend to avoid "Issuer Mismatch" errors in Docker environments.
