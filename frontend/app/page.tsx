@@ -83,32 +83,18 @@ export default function Dashboard() {
             setHighlightedAgent(data.agentId);
             setTimeout(() => setHighlightedAgent(null), 2000);
 
-            // Optimization: Update state locally instead of fetching all agents
+            // Event-driven update: modify local state instead of re-fetching all agents
             setAgents((prev) =>
-                prev.map((agent) => {
-                    if (agent.id === data.agentId) {
-                        let newError = agent.lastError;
-                        // Use provided error if present
-                        if (data.error !== undefined) {
-                            newError = data.error;
-                        }
-                        // Handle manual reset case (crashed -> idle) where error might not be in payload but should be cleared
-                        else if (
-                            data.previousStatus === "crashed" &&
-                            data.newStatus === "idle"
-                        ) {
-                            newError = null;
-                        }
-
-                        return {
-                            ...agent,
-                            status: data.newStatus,
-                            lastCheckedAt: data.timestamp || new Date().toISOString(),
-                            lastError: newError,
-                        };
-                    }
-                    return agent;
-                })
+                prev.map((agent) =>
+                    agent.id === data.agentId
+                        ? {
+                              ...agent,
+                              status: data.newStatus,
+                              lastError: data.error || undefined,
+                              lastCheckedAt: data.timestamp,
+                          }
+                        : agent
+                )
             );
         });
 
