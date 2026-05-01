@@ -109,6 +109,8 @@ export default function Dashboard() {
             const e = event as MessageEvent;
             const data = JSON.parse(e.data);
             addEvent("info", `Agent removed: ${data.name}`);
+
+            // Optimization: Update state locally
             setAgents((prev) => prev.filter((a) => a.id !== data.agentId));
         });
 

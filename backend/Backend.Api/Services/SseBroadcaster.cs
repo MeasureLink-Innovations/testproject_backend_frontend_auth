@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Threading;
 using Backend.Api.Models;
 
 namespace Backend.Api.Services;
@@ -12,6 +13,7 @@ namespace Backend.Api.Services;
 public class SseBroadcaster
 {
     private readonly ConcurrentDictionary<Guid, StreamWriter> _clients = new();
+    private readonly SemaphoreSlim _broadcastLock = new(1, 1);
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -37,24 +39,28 @@ public class SseBroadcaster
     {
         var payload = $"event: {eventType}\ndata: {JsonSerializer.Serialize(data, JsonOpts)}\n\n";
 
-        var deadClients = new List<Guid>();
-
-        foreach (var (id, writer) in _clients)
+        await _broadcastLock.WaitAsync();
+        try
         {
-            try
+            // Fan-out optimization: Send to all clients in parallel
+            var tasks = _clients.Select(async client =>
             {
-                await writer.WriteAsync(payload);
-                await writer.FlushAsync();
-            }
-            catch
-            {
-                deadClients.Add(id);
-            }
+                try
+                {
+                    await client.Value.WriteAsync(payload);
+                    await client.Value.FlushAsync();
+                }
+                catch
+                {
+                    _clients.TryRemove(client.Key, out _);
+                }
+            });
+
+            await Task.WhenAll(tasks);
         }
-
-        foreach (var id in deadClients)
+        finally
         {
-            _clients.TryRemove(id, out _);
+            _broadcastLock.Release();
         }
     }
 
