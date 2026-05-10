@@ -83,23 +83,18 @@ export default function Dashboard() {
             setHighlightedAgent(data.agentId);
             setTimeout(() => setHighlightedAgent(null), 2000);
 
-            // Optimization: Update local state instead of refetching
+            // Event-driven update: modify local state instead of re-fetching all agents
             setAgents((prev) =>
-                prev.map((agent) => {
-                    if (agent.id !== data.agentId) return agent;
-                    return {
-                        ...agent,
-                        status: data.newStatus,
-                        lastCheckedAt: data.timestamp || new Date().toISOString(),
-                        lastError:
-                            data.error !== undefined
-                                ? data.error
-                                : data.newStatus === "idle" &&
-                                  data.previousStatus === "crashed"
-                                ? undefined
-                                : agent.lastError,
-                    };
-                })
+                prev.map((agent) =>
+                    agent.id === data.agentId
+                        ? {
+                              ...agent,
+                              status: data.newStatus,
+                              lastError: data.error || undefined,
+                              lastCheckedAt: data.timestamp,
+                          }
+                        : agent
+                )
             );
         });
 
@@ -115,7 +110,7 @@ export default function Dashboard() {
             const data = JSON.parse(e.data);
             addEvent("info", `Agent removed: ${data.name}`);
 
-            // Optimization: Update local state instead of refetching
+            // Optimization: Update state locally
             setAgents((prev) => prev.filter((a) => a.id !== data.agentId));
         });
 

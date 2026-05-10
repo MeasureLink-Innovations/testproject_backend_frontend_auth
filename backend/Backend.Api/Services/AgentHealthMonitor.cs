@@ -15,7 +15,6 @@ public class AgentHealthMonitor : BackgroundService
     private readonly MeasurementProxyService _proxy;
     private readonly SseBroadcaster _sse;
     private readonly ILogger<AgentHealthMonitor> _logger;
-    private readonly SemaphoreSlim _semaphore = new(20);
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
     // Limit concurrent requests to prevent socket exhaustion
